@@ -24,6 +24,7 @@ PORT(
 		SC1 : IN std_logic;
 		SC2 : IN std_logic;
 		AK4490 : IN std_logic;
+		AK4499 : std_logic;
 		ATTCOUNT : IN std_logic_vector(7 downto 0);
 		CSN : OUT std_logic;
 		CCLK : OUT std_logic;
@@ -35,7 +36,8 @@ ARCHITECTURE RTL OF regctr IS
 
 signal icclk,d_csn,cen,edge_timer,rstn,ddp,delay_clk_msec : std_logic;
 signal attenup,attendwn,endivclk,enatt3rddig,enatt4thdig,regaddrcnt_en : std_logic;
-signal dcounter_sys5,icsn,rstdp,chipaddr,sellr,vlmbp : std_logic;
+signal dcounter_sys5,icsn,rstdp,chipaddr,sellr1,sellr2,mono1,vlmbp : std_logic;
+signal invl1 : std_logic;
 signal counter_sys : std_logic_vector(10 downto 0);
 signal delay,detswdwn,detswup : std_logic_vector(1 downto 0);
 signal regaddrcnt : std_logic_vector(4 downto 0);
@@ -51,32 +53,32 @@ constant ak4490_mono : std_logic_vector(11 downto 0) := "010011000000";
 constant ak4497_stereo : std_logic_vector(11 downto 0) := "010101100000";
 constant ak4497_mono : std_logic_vector(11 downto 0) := "101011000000";
 constant regaddr_ak4490 : std_logic_vector(4 downto 0) := "01001";
-constant regaddr_ak4497 : std_logic_vector(4 downto 0) := "10101";
+constant regaddr_ak4497 : std_logic_vector(4 downto 0) := "01111";
 constant regaddr_zero : std_logic_vector(4 downto 0) := "00000";
 
 -- Register address
 constant Control1 : std_logic_vector(4 downto 0) := "00000";
 constant Control2 : std_logic_vector(4 downto 0) := "00001";
 constant Control3 : std_logic_vector(4 downto 0) := "00010";
-constant Lch_ATT : std_logic_vector(4 downto 0) := "00011";
-constant Rch_ATT : std_logic_vector(4 downto 0) := "00100";
+constant L1ch_ATT : std_logic_vector(4 downto 0) := "00011";
+constant R1ch_ATT : std_logic_vector(4 downto 0) := "00100";
 constant Control4 : std_logic_vector(4 downto 0) := "00101";
 constant DSD1 : std_logic_vector(4 downto 0) := "00110";
 constant Control5 : std_logic_vector(4 downto 0) := "00111";
 constant Sound_Control : std_logic_vector(4 downto 0) := "01000";
 constant DSD2 : std_logic_vector(4 downto 0) := "01001";
-constant Control7 : std_logic_vector(4 downto 0) := "01010";
-constant Control8 : std_logic_vector(4 downto 0) := "01011";
-constant Control9 : std_logic_vector(4 downto 0) := "01100";
-constant Reserved1 : std_logic_vector(4 downto 0) := "01101";
-constant Reserved2 : std_logic_vector(4 downto 0) := "01110";
-constant Reserved3 : std_logic_vector(4 downto 0) := "01111";
-constant Reserved4 : std_logic_vector(4 downto 0) := "10000";
-constant Reserved5 : std_logic_vector(4 downto 0) := "10001";
-constant Reserved6 : std_logic_vector(4 downto 0) := "10010";
-constant Reserved7 : std_logic_vector(4 downto 0) := "10011";
-constant Reserved8 : std_logic_vector(4 downto 0) := "10100";
-constant DFS_read : std_logic_vector(4 downto 0) := "10101";
+constant Control6 : std_logic_vector(4 downto 0) := "01010";
+constant Control7 : std_logic_vector(4 downto 0) := "01011";
+constant L2chATT : std_logic_vector(4 downto 0) := "01100";
+constant R2chATT : std_logic_vector(4 downto 0) := "01101";
+constant Reserved1 : std_logic_vector(4 downto 0) := "01110";
+constant Reserved2 : std_logic_vector(4 downto 0) := "01111";
+--constant Reserved3 : std_logic_vector(4 downto 0) := "10000";
+--constant Reserved4 : std_logic_vector(4 downto 0) := "10001";
+--constant Reserved5 : std_logic_vector(4 downto 0) := "10010";
+--constant Reserved6 : std_logic_vector(4 downto 0) := "10011";
+--constant Reserved7 : std_logic_vector(4 downto 0) := "10100";
+--constant DFS_read : std_logic_vector(4 downto 0) := "10101";
 
 BEGIN
 
@@ -258,9 +260,26 @@ end process;
 -- channel select for MONO mode
 process (chipaddr) begin
 	if(chipaddr = '0') then
-		sellr <= '0';	-- Device 0 is L channel
+		sellr1 <= '0';	-- Device 0 is L channel
 	else
-		sellr <= '1';	-- Device 1 is R channel
+		sellr1 <= '1';	-- Device 1 is R channel
+	end if;
+end process;
+
+sellr2 <= ak4499;
+
+process (MONO,ak4499) begin
+	if(ak4499 = '0') then
+		if(MONO = '0') then
+			mono1 <= '0';
+			invl1 <= '0';
+		else
+			mono1 <= '1';
+			invl1 <= '1';
+		end if;
+	else
+		mono1 <= '1';
+		invl1 <= '0';
 	end if;
 end process;
 
@@ -273,7 +292,7 @@ process (XDSD,DSDD) begin
 end process;
 			
 --Select external jumper status
-process(regaddrcnt,rstdp,SD,DEM1,DEM0,SMUTE,XDSD,MONO,sellr,SLOW,ATTCOUNT,SSLOW,vlmbp,DSDSEL0,SC0,SC1,SC2,DSDF,DSDSEL1) begin
+process(regaddrcnt,rstdp,SD,DEM1,DEM0,XDSD,MONO1,sellr1,sellr2,ak4499,SLOW,ATTCOUNT,SSLOW,vlmbp,DSDSEL0,SC0,SC1,SC2,DSDF,DSDSEL1) begin
 	if(regaddrcnt = Control1) then
 		regd(7) <= '1';	--ACKS ;Auto mode
 		regd(6) <= '0';	--EXDF
@@ -297,20 +316,20 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,SMUTE,XDSD,MONO,sellr,SLOW,ATTCOUNT,SSLOW,
 		regd(6) <= '0';
 		regd(5) <= '0';		--DCKS
 		regd(4) <= '0';		--DCKB
-		regd(3) <= MONO;		--MONO
+		regd(3) <= MONO1;		--MONO
 		regd(2) <= '0';		--DZFB
-		regd(1) <= sellr;		--SELLR
+		regd(1) <= sellr1;		--SELLR
 		regd(0) <= not SLOW;		--SLOW
-	elsif(regaddrcnt = Lch_ATT) then
+	elsif(regaddrcnt = L1ch_ATT) then
 		regd <= ATTCOUNT;	--ATT(7:0)
-	elsif(regaddrcnt = Rch_ATT) then
+	elsif(regaddrcnt = R1ch_ATT) then
 		regd <= ATTCOUNT;	--ATT(7:0)
 	elsif(regaddrcnt = Control4) then
-		regd(7) <= MONO;	--INVL
+		regd(7) <= invl1;	--INVL
 		regd(6) <= '0';	--INVR
 		regd(5) <= '0';
 		regd(4) <= '0';
-		regd(3) <= '0';
+		regd(3) <= sellr2;
 		regd(2) <= '0';
 		regd(1) <= '1';	--DFS2
 		regd(0) <= not SSLOW;	--SSLOW
@@ -347,37 +366,32 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,SMUTE,XDSD,MONO,sellr,SLOW,ATTCOUNT,SSLOW,
 		regd(5) <= '0';
 		regd(4) <= '0';
 		regd(3) <= '0';
-		regd(2) <= '1';		--DSDPATH for ak4497
+		regd(2) <= ak4499;		--DSDPATH for ak4497
 		regd(1) <= not DSDF;		-- _/DSDF
 		regd(0) <= DSDSEL1;	--DSDSEL1
 -- From resister address "0AH" to "15H" is about for AK4497/AK4493
-	elsif(regaddrcnt = Control7) then
+	elsif(regaddrcnt = Control6) then
 		regd(7) <= '0';	--TDM1
 		regd(6) <= '0';	--TDM0
 		regd(5) <= '0';	--SDS1
 		regd(4) <= '0';	--SDS2
-		regd(3) <= '0';
-		regd(2) <= '1';	--PW
-		regd(1) <= '0';
-		regd(0) <= '0';
-	elsif(regaddrcnt = Control8) then
+		regd(3) <= '1';	--PW2
+		regd(2) <= '1';	--PW1
+		regd(1) <= '0';	--DEM2[1] for ak4499
+		regd(0) <= DEM0;	--DEM2[0] for ak4499
+	elsif(regaddrcnt = Control7) then
 		regd(7) <= '0';	--ATS1
 		regd(6) <= '0';	--ATS0
-		regd(5) <= '0';
+		regd(5) <= ak4499;	--MONO2
 		regd(4) <= '0';	--SDS0
 		regd(3) <= '0';
 		regd(2) <= '0';
 		regd(1) <= '0';	--DCHAIN
 		regd(0) <= '0';	--TEST
-	elsif(regaddrcnt = Control9) then
-		regd(7) <= '0';
-		regd(6) <= '0';
-		regd(5) <= '0';
-		regd(4) <= '0';
-		regd(3) <= '0';
-		regd(2) <= '0';
-		regd(1) <= '0';
-		regd(0) <= '0';
+	elsif(regaddrcnt = L2chATT) then
+		regd <= ATTCOUNT;
+	elsif(regaddrcnt = R2chATT) then
+		regd <= ATTCOUNT;
 	elsif(regaddrcnt = Reserved1) then
 		regd(7) <= '0';
 		regd(6) <= '0';
@@ -393,20 +407,10 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,SMUTE,XDSD,MONO,sellr,SLOW,ATTCOUNT,SSLOW,
 		regd(5) <= '0';
 		regd(4) <= '0';
 		regd(3) <= '0';
-		regd(2) <= '0';
-		regd(1) <= '0';
-		regd(0) <= '0';
-	elsif(regaddrcnt = Reserved3) then
-		regd(7) <= '0';
-		regd(6) <= '0';
-		regd(5) <= '0';
-		regd(4) <= '0';
-		regd(3) <= '0';
 		regd(2) <= '0';	--ADFS2
 		regd(1) <= '0';	--ADFS1
 		regd(0) <= '0';	--ADFS0
 		else
---		regd <= regd;
 		regd <= "11111111";
 	end if;
 end process;

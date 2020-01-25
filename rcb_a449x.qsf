@@ -137,5 +137,4 @@ set_location_assignment PIN_27 -to DSD
 set_instance_assignment -name IO_STANDARD "3.3-V LVCMOS" -to DSD
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to DSD
 set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to MUTE_IN
-set_location_assignment PIN_3 -to EMUTE
-set_instance_assignment -name WEAK_PULL_UP_RESISTOR ON -to EMUTE
+set_location_assignment PIN_3 -to AK4499

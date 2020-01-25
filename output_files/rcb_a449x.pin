@@ -64,7 +64,7 @@ Pin Name/Usage               : Location  : Dir.   : I/O Standard      : Voltage 
 -------------------------------------------------------------------------------------------------------------
 DEM0                         : 1         : input  : 3.3-V LVTTL       :         : 1         : Y              
 MONO                         : 2         : input  : 3.3-V LVTTL       :         : 1         : Y              
-EMUTE                        : 3         : input  : 3.3-V LVTTL       :         : 1         : Y              
+AK4499                       : 3         : input  : 3.3-V LVTTL       :         : 1         : Y              
 GND*                         : 4         :        :                   :         : 1         :                
 GND*                         : 5         :        :                   :         : 1         :                
 VCCIO1                       : 6         : power  :                   : 3.3V    : 1         :                
