@@ -36,8 +36,8 @@ ARCHITECTURE RTL OF regctr IS
 
 signal icclk,d_csn,cen,edge_timer,rstn,ddp,delay_clk_msec : std_logic;
 signal attenup,attendwn,endivclk,enatt3rddig,enatt4thdig,regaddrcnt_en : std_logic;
-signal dcounter_sys5,icsn,rstdp,chipaddr,sellr1,sellr2,mono1,vlmbp : std_logic;
-signal invl1 : std_logic;
+signal dcounter_sys5,icsn,rstdp,chipaddr,vlmbp : std_logic;
+signal sellr1,sellr2,mono1,mono2,invl1,invr1,invl2,invr2 : std_logic;
 signal counter_sys : std_logic_vector(10 downto 0);
 signal delay,detswdwn,detswup : std_logic_vector(1 downto 0);
 signal regaddrcnt : std_logic_vector(4 downto 0);
@@ -50,8 +50,10 @@ signal next_state: states;
 
 constant ak4490_stereo : std_logic_vector(11 downto 0) := "001001100000";
 constant ak4490_mono : std_logic_vector(11 downto 0) := "010011000000";
-constant ak4497_stereo : std_logic_vector(11 downto 0) := "010101100000";
-constant ak4497_mono : std_logic_vector(11 downto 0) := "101011000000";
+--constant ak4497_stereo : std_logic_vector(11 downto 0) := "010101100000";	-- 1376
+--constant ak4497_mono : std_logic_vector(11 downto 0) := "101011000000";		-- 2752
+constant ak4497_stereo : std_logic_vector(11 downto 0) := "001111100000";	-- 992
+constant ak4497_mono : std_logic_vector(11 downto 0) := "011111000000";		-- 1984
 constant regaddr_ak4490 : std_logic_vector(4 downto 0) := "01001";
 constant regaddr_ak4497 : std_logic_vector(4 downto 0) := "01111";
 constant regaddr_zero : std_logic_vector(4 downto 0) := "00000";
@@ -84,7 +86,6 @@ BEGIN
 
 CCLK <= icclk;
 CSN <= icsn;
-
 --Generate CSN
 process(RESET,CLK) BEGIN
 	if(RESET = '0') then
@@ -92,17 +93,13 @@ process(RESET,CLK) BEGIN
 	elsif(CLK'event and CLK='1') then
 		if(cen = '1') then
 			if(AK4490 = '1') then	-- AK4490/95
-				if(MONO = '0' and counter_sys = ak4490_stereo) then	-- Stereo mode
-					counter_sys <= counter_sys;
-				elsif(MONO = '1' and counter_sys = ak4490_mono) then	-- Mono mode
+				if(counter_sys = ak4490_stereo) then	-- Stereo mode
 					counter_sys <= counter_sys;
 				else
 					counter_sys <= counter_sys + '1';
 				end if;
 			else	-- AK4497
-				if(MONO = '0' and counter_sys = ak4497_stereo) then	-- Stereo mode
-					counter_sys <= counter_sys;
-				elsif(MONO = '1' and counter_sys = ak4497_mono) then	-- Mono mode
+				if(counter_sys = ak4497_stereo) then	-- Stereo mode
 					counter_sys <= counter_sys;
 				else
 					counter_sys <= counter_sys + '1';
@@ -181,17 +178,13 @@ process(present_state,ddp,delay_clk_msec,counter_sys,edge_timer,AK4490,MONO) beg
 			cen <= '1';
 			rstn <= '0';
 			if(AK4490 = '1') then	--AK4490/95
-				if(MONO = '0' and counter_sys = ak4490_stereo) then	--CLK*2*32*10-32=608
-					next_state <= clear;
-				elsif(MONO = '1' and counter_sys = ak4490_mono) then	--608*2
+				if(counter_sys = ak4490_stereo) then	--CLK*2*32*10-32=608
 					next_state <= clear;
 				else
 					next_state <= present_state;
 				end if;
 			else	--AK4497
-				if(MONO = '0' and counter_sys = ak4497_stereo) then	--CLK*2*32*16-32=992
-					next_state <= clear;
-				elsif(MONO = '1' and counter_sys = ak4497_mono) then	--992*2
+				if(counter_sys = ak4497_stereo) then	--CLK*2*32*16-32=992
 					next_state <= clear;
 				else
 					next_state <= present_state;
@@ -201,17 +194,13 @@ process(present_state,ddp,delay_clk_msec,counter_sys,edge_timer,AK4490,MONO) beg
 			cen <= '1';
 			rstn <= '1';
 			if(AK4490 = '1') then
-				if(MONO = '0' and counter_sys = ak4490_stereo) then
-					next_state <= clear;
-				elsif(MONO = '1' and counter_sys = ak4490_mono) then
+				if(counter_sys = ak4490_stereo) then
 					next_state <= clear;
 				else
 					next_state <= present_state;
 				end if;
 			else
-				if(MONO = '0' and counter_sys = ak4497_stereo) then
-					next_state <= clear;
-				elsif(MONO = '1' and counter_sys = ak4497_mono) then
+				if(counter_sys = ak4497_stereo) then
 					next_state <= clear;
 				else
 					next_state <= present_state;
@@ -258,28 +247,51 @@ process(RESET,CLK) begin
 end process;
 
 -- channel select for MONO mode
-process (chipaddr) begin
-	if(chipaddr = '0') then
-		sellr1 <= '0';	-- Device 0 is L channel
-	else
-		sellr1 <= '1';	-- Device 1 is R channel
-	end if;
-end process;
-
-sellr2 <= ak4499;
-
-process (MONO,ak4499) begin
+process (MONO,ak4499,chipaddr) begin
 	if(ak4499 = '0') then
 		if(MONO = '0') then
 			mono1 <= '0';
 			invl1 <= '0';
 		else
-			mono1 <= '1';
-			invl1 <= '1';
+			if(chipaddr = '0') then
+				mono1 <= '1';
+				sellr1 <= '0';
+				invl1 <= '1';
+			else
+				sellr1 <= '1';
+			end if;
 		end if;
 	else
-		mono1 <= '1';
-		invl1 <= '0';
+		if(MONO = '0') then
+			mono1 <= '1';
+			sellr1 <= '0';
+			invl1 <= '0';
+			invr1 <= '0';
+			mono2 <= '1';
+			sellr2 <= '1';
+			invl2 <= '0';
+			invr2 <= '0';
+		else
+			if(chipaddr = '0') then
+				mono1 <= '1';
+				sellr1 <= '0';
+				invl1 <= '0';
+				invr1 <= '0';
+				mono2 <= '1';
+				sellr2 <= '0';
+				invl2 <= '1';--'0';
+				invr2 <= '1';--'0';
+			else
+				mono1 <= '1';
+				sellr1 <= '1';
+				invl1 <= '1';--'0';
+				invr1 <= '1';--'0';
+				mono2 <= '1';
+				sellr2 <= '1';
+				invl2 <= '0';
+				invr2 <= '0';
+			end if;
+		end if;
 	end if;
 end process;
 
@@ -318,18 +330,20 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,XDSD,MONO1,sellr1,sellr2,ak4499,SLOW,ATTCO
 		regd(4) <= '0';		--DCKB
 		regd(3) <= MONO1;		--MONO
 		regd(2) <= '0';		--DZFB
-		regd(1) <= sellr1;		--SELLR
+		regd(1) <= sellr1;		--SELLR1
 		regd(0) <= not SLOW;		--SLOW
 	elsif(regaddrcnt = L1ch_ATT) then
-		regd <= ATTCOUNT;	--ATT(7:0)
+--		regd <= ATTCOUNT;	--ATT(7:0)
+		regd <= "11111111";
 	elsif(regaddrcnt = R1ch_ATT) then
-		regd <= ATTCOUNT;	--ATT(7:0)
+--		regd <= ATTCOUNT;	--ATT(7:0)
+		regd <= "11111111";
 	elsif(regaddrcnt = Control4) then
-		regd(7) <= invl1;	--INVL
-		regd(6) <= '0';	--INVR
-		regd(5) <= '0';
-		regd(4) <= '0';
-		regd(3) <= sellr2;
+		regd(7) <= invl1;	--INVL1
+		regd(6) <= invr1;	--INVR1
+		regd(5) <= invl2;	--INVL2
+		regd(4) <= invr2;	--INVR2
+		regd(3) <= sellr2;	--SELLR2
 		regd(2) <= '0';
 		regd(1) <= '1';	--DFS2
 		regd(0) <= not SSLOW;	--SSLOW
@@ -389,9 +403,11 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,XDSD,MONO1,sellr1,sellr2,ak4499,SLOW,ATTCO
 		regd(1) <= '0';	--DCHAIN
 		regd(0) <= '0';	--TEST
 	elsif(regaddrcnt = L2chATT) then
-		regd <= ATTCOUNT;
+--		regd <= ATTCOUNT;
+		regd <= "11111111";
 	elsif(regaddrcnt = R2chATT) then
-		regd <= ATTCOUNT;
+--		regd <= ATTCOUNT;
+		regd <= "11111111";
 	elsif(regaddrcnt = Reserved1) then
 		regd(7) <= '0';
 		regd(6) <= '0';
@@ -415,15 +431,13 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,XDSD,MONO1,sellr1,sellr2,ak4499,SLOW,ATTCO
 	end if;
 end process;
 
-process(RESET,CLK) begin
-	if(RESET = '0') then
+process(reset,clk) begin
+	if(reset = '0') then
 		chipaddr <= '0';
-	elsif(CLK'event and CLK = '1') then
-		if(cen = '1') then
-			if(AK4490 = '1' and counter_sys = ak4490_stereo) then
-				chipaddr <= '1';
-			elsif(AK4490 ='0' and counter_sys = ak4497_stereo) then
-				chipaddr <= '1';
+	elsif(clk'event and clk='1') then
+		if (MONO = '1') then
+			if(edge_timer = '1') then
+				chipaddr <= not chipaddr;
 			else
 				chipaddr <= chipaddr;
 			end if;

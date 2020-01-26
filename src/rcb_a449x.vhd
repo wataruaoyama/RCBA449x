@@ -83,9 +83,9 @@ begin
 	C1 : clkgen port map (RESET => reset,MCLKA => mclka,CLK_MSEC=>clk_msec,
 								CLK_FIL => chat_clk,CLK_10M => clk_10m);
 								
-	A1 : attcnt port map (CLK => CLK_10M,RESET_N => reset,A => PHA, B => PHB,CNTUP => attup,CNTDWN => attdwn,
-								Q => attcount);
-		
+--	A1 : attcnt port map (CLK => CLK_10M,RESET_N => reset,A => PHA, B => PHB,CNTUP => attup,CNTDWN => attdwn,
+--								Q => attcount);
+
 	xak4490 <= not ak4497;
 	imono <= not MONO;
 	xdsd <= not DSDON;
