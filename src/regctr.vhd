@@ -50,12 +50,16 @@ signal next_state: states;
 
 constant ak4490_stereo : std_logic_vector(11 downto 0) := "001001100000";
 constant ak4490_mono : std_logic_vector(11 downto 0) := "010011000000";
---constant ak4497_stereo : std_logic_vector(11 downto 0) := "010101100000";	-- 1376
---constant ak4497_mono : std_logic_vector(11 downto 0) := "101011000000";		-- 2752
+constant regaddr_ak4490 : std_logic_vector(4 downto 0) := "01001";
+
 constant ak4497_stereo : std_logic_vector(11 downto 0) := "001111100000";	-- 992
 constant ak4497_mono : std_logic_vector(11 downto 0) := "011111000000";		-- 1984
-constant regaddr_ak4490 : std_logic_vector(4 downto 0) := "01001";
 constant regaddr_ak4497 : std_logic_vector(4 downto 0) := "01111";
+
+--constant ak4497_stereo : std_logic_vector(11 downto 0) := "010101100000";	-- 1376
+--constant ak4497_mono : std_logic_vector(11 downto 0) := "101011000000";		-- 2752
+--constant regaddr_ak4497 : std_logic_vector(4 downto 0) := "10101";
+
 constant regaddr_zero : std_logic_vector(4 downto 0) := "00000";
 
 -- Register address
@@ -75,12 +79,12 @@ constant L2chATT : std_logic_vector(4 downto 0) := "01100";
 constant R2chATT : std_logic_vector(4 downto 0) := "01101";
 constant Reserved1 : std_logic_vector(4 downto 0) := "01110";
 constant Reserved2 : std_logic_vector(4 downto 0) := "01111";
---constant Reserved3 : std_logic_vector(4 downto 0) := "10000";
---constant Reserved4 : std_logic_vector(4 downto 0) := "10001";
---constant Reserved5 : std_logic_vector(4 downto 0) := "10010";
---constant Reserved6 : std_logic_vector(4 downto 0) := "10011";
---constant Reserved7 : std_logic_vector(4 downto 0) := "10100";
---constant DFS_read : std_logic_vector(4 downto 0) := "10101";
+constant Reserved3 : std_logic_vector(4 downto 0) := "10000";
+constant Reserved4 : std_logic_vector(4 downto 0) := "10001";
+constant Reserved5 : std_logic_vector(4 downto 0) := "10010";
+constant Reserved6 : std_logic_vector(4 downto 0) := "10011";
+constant Reserved7 : std_logic_vector(4 downto 0) := "10100";
+constant DFS_read : std_logic_vector(4 downto 0) := "10101";
 
 BEGIN
 
@@ -93,13 +97,13 @@ process(RESET,CLK) BEGIN
 	elsif(CLK'event and CLK='1') then
 		if(cen = '1') then
 			if(AK4490 = '1') then	-- AK4490/95
-				if(counter_sys = ak4490_stereo) then	-- Stereo mode
+				if(counter_sys = ak4490_stereo) then
 					counter_sys <= counter_sys;
 				else
 					counter_sys <= counter_sys + '1';
 				end if;
 			else	-- AK4497
-				if(counter_sys = ak4497_stereo) then	-- Stereo mode
+				if(counter_sys = ak4497_stereo) then
 					counter_sys <= counter_sys;
 				else
 					counter_sys <= counter_sys + '1';
@@ -160,7 +164,7 @@ process(CLK,RESET) begin
 	end if;
 end process;
 
-process(present_state,ddp,delay_clk_msec,counter_sys,edge_timer,AK4490,MONO) begin
+process(present_state,ddp,delay_clk_msec,counter_sys,edge_timer,AK4490) begin
 	case present_state is
 		when clear => 
 			cen <= '0';
@@ -279,13 +283,13 @@ process (MONO,ak4499,chipaddr) begin
 				invr1 <= '0';
 				mono2 <= '1';
 				sellr2 <= '0';
-				invl2 <= '1';--'0';
-				invr2 <= '1';--'0';
+				invl2 <= '1';
+				invr2 <= '1';
 			else
 				mono1 <= '1';
 				sellr1 <= '1';
-				invl1 <= '1';--'0';
-				invr1 <= '1';--'0';
+				invl1 <= '1';
+				invr1 <= '1';
 				mono2 <= '1';
 				sellr2 <= '1';
 				invl2 <= '0';
@@ -328,7 +332,7 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,XDSD,MONO1,sellr1,sellr2,ak4499,SLOW,ATTCO
 		regd(6) <= '0';
 		regd(5) <= '0';		--DCKS
 		regd(4) <= '0';		--DCKB
-		regd(3) <= MONO1;		--MONO
+		regd(3) <= mono1;		--MONO
 		regd(2) <= '0';		--DZFB
 		regd(1) <= sellr1;		--SELLR1
 		regd(0) <= not SLOW;		--SLOW
@@ -396,7 +400,7 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,XDSD,MONO1,sellr1,sellr2,ak4499,SLOW,ATTCO
 	elsif(regaddrcnt = Control7) then
 		regd(7) <= '0';	--ATS1
 		regd(6) <= '0';	--ATS0
-		regd(5) <= ak4499;	--MONO2
+		regd(5) <= mono2;	--MONO2
 		regd(4) <= '0';	--SDS0
 		regd(3) <= '0';
 		regd(2) <= '0';
@@ -423,10 +427,65 @@ process(regaddrcnt,rstdp,SD,DEM1,DEM0,XDSD,MONO1,sellr1,sellr2,ak4499,SLOW,ATTCO
 		regd(5) <= '0';
 		regd(4) <= '0';
 		regd(3) <= '0';
-		regd(2) <= '0';	--ADFS2
-		regd(1) <= '0';	--ADFS1
-		regd(0) <= '0';	--ADFS0
-		else
+		regd(2) <= '0';
+		regd(1) <= '0';
+		regd(0) <= '0';
+-- From resister address "10H" to "15H" can not use.
+--		elsif(regaddrcnt = Reserved3) then
+--		regd(7) <= '0';
+--		regd(6) <= '0';
+--		regd(5) <= '0';
+--		regd(4) <= '0';
+--		regd(3) <= '0';
+--		regd(2) <= '0';
+--		regd(1) <= '0';
+--		regd(0) <= '0';
+--	elsif(regaddrcnt = Reserved4) then
+--		regd(7) <= '0';
+--		regd(6) <= '0';
+--		regd(5) <= '0';
+--		regd(4) <= '0';
+--		regd(3) <= '0';
+--		regd(2) <= '0';
+--		regd(1) <= '0';
+--		regd(0) <= '0';
+--	elsif(regaddrcnt = Reserved5) then
+--		regd(7) <= '0';
+--		regd(6) <= '0';
+--		regd(5) <= '0';
+--		regd(4) <= '0';
+--		regd(3) <= '0';
+--		regd(2) <= '0';
+--		regd(1) <= '0';
+--		regd(0) <= '0';
+--	elsif(regaddrcnt = Reserved6) then
+--		regd(7) <= '0';
+--		regd(6) <= '0';
+--		regd(5) <= '0';
+--		regd(4) <= '0';
+--		regd(3) <= '0';
+--		regd(2) <= '0';
+--		regd(1) <= '0';
+--		regd(0) <= '0';
+--	elsif(regaddrcnt = Reserved7) then
+--		regd(7) <= '0';
+--		regd(6) <= '0';
+--		regd(5) <= '0';
+--		regd(4) <= '0';
+--		regd(3) <= '0';
+--		regd(2) <= '0';
+--		regd(1) <= '0';
+--		regd(0) <= '0';
+--	elsif(regaddrcnt = DFS_read) then
+--		regd(7) <= '1';	--ADPE
+--		regd(6) <= '0';	--ADPT1
+--		regd(5) <= '0';	--ADPT0
+--		regd(4) <= '0';
+--		regd(3) <= '0';
+--		regd(2) <= '0';	--ADFS2
+--		regd(1) <= '0';	--ADFS1
+--		regd(0) <= '0';	--ADFS0
+	else
 		regd <= "11111111";
 	end if;
 end process;
